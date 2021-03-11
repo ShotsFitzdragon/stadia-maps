@@ -18,3 +18,6 @@ def index():
 if __name__ == '__main__':
     app.debug=True
     app.run()
+
+#brew services start mongodb-community@4.4
+#brew services stop mongodb-community@4.4
