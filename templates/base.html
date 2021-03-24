@@ -1,14 +1,62 @@
 <html>
 <head>
-    <title>Mapbox + Flask + MongoDB Demo</title>
+    <title>GIS Demo</title>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
     <script src="//cdnjs.cloudflare.com/ajax/libs/mapbox-gl/0.52.0/mapbox-gl.js"></script>
     <link href="//cdnjs.cloudflare.com/ajax/libs/mapbox-gl/0.52.0/mapbox-gl.css" rel="stylesheet" />
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='../static/styles/map.css') }}" />
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
 </head>
 <body>
+    <style>
+    #menu {
+        background: #fff;
+        position: absolute;
+        z-index: 1;
+        top: 10px;
+        right: 50px;
+        border-radius: 3px;
+        width: 120px;
+        border: 1px solid rgba(0, 0, 0, 0.4);
+        font-family: 'Open Sans', sans-serif;
+    }
+
+    #menu a {
+        font-size: 13px;
+        color: #404040;
+        display: block;
+        margin: 0;
+        padding: 0;
+        padding: 10px;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+        text-align: center;
+    }
+
+    #menu a:last-child {
+        border: none;
+    }
+
+    #menu a:hover {
+        background-color: #f8f8f8;
+        color: #404040;
+    }
+
+    #menu a.active {
+        background-color: #3887be;
+        color: #ffffff;
+    }
+
+    #menu a.active:hover {
+        background: #3074a4;
+    }
+    </style>
+
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.5.1/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.5.1/mapbox-gl-geocoder.css" type="text/css">
     <!-- Promise polyfill script required to use Mapbox GL Geocoder in IE 11 -->
@@ -17,6 +65,7 @@
     <h1>
         Stadia Maps + Flask + MongoDB Demo
     </h1>
+    <nav id="menu"></nav>
     <div id="map"></div>
     <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoibWlrZTE5OTkiLCJhIjoiY2tscjY2bzU1MDB4eTJ1anllMWJhdDc1bSJ9.FcfIF1ddjVVQ0HzOvEn6uQ';
@@ -61,133 +110,166 @@
          // Add a geojson point source.
          // Heatmap layers also work with a vector tile source.
          map.addSource('earthquakes', {
+             type: 'geojson',
+             // Point to GeoJSON data. This example visualizes all M1.0+ earthquakes
+             // from 12/22/15 to 1/21/16 as logged by USGS' Earthquake hazards program.
+             data: 'https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson',
+             cluster: true,
+             clusterMaxZoom: 14, // Max zoom to cluster points on
+             clusterRadius: 50, // Radius of each cluster when clustering points (defaults to 50)
+             buffer: 0
+         });
+
+         map.addSource('mapbox-terrain', {
+             type: 'vector',
+             url: 'mapbox://mapbox.mapbox-terrain-v2'
+         });
+         map.addSource('urban-areas', {
              'type': 'geojson',
-             'data': 'https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson'
+             'data': 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_50m_urban_areas.geojson',
+             buffer: 0
+         });
+         map.addLayer({
+             'id': 'Urban Areas',
+             'type': 'fill',
+             'source': 'urban-areas',
+             'layout': {},
+             'paint': {
+                 'fill-color': '#f08',
+                 'fill-opacity': 0.4
+             }
          });
          map.addLayer(
-             {
-                 'id': 'earthquakes-heat',
-                 'type': 'heatmap',
-                 'source': 'earthquakes',
-                 'maxzoom': 9,
-                 'paint': {
-                 // Increase the heatmap weight based on frequency and property magnitude
-                     'heatmap-weight': [
-                         'interpolate',
-                         ['linear'],
-                         ['get', 'mag'],
-                         0,
-                         0,
-                         6,
-                         1
-                     ],
-                     // Increase the heatmap color weight weight by zoom level
-                     // heatmap-intensity is a multiplier on top of heatmap-weight
-                     'heatmap-intensity': [
-                         'interpolate',
-                         ['linear'],
-                         ['zoom'],
-                         0,
-                         1,
-                         9,
-                         3
-                     ],
-                     // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
-                     // Begin color ramp at 0-stop with a 0-transparancy color
-                     // to create a blur-like effect.
-                     'heatmap-color': [
-                         'interpolate',
-                         ['linear'],
-                         ['heatmap-density'],
-                         0,
-                         'rgba(33,102,172,0)',
-                         0.2,
-                         'rgb(103,169,207)',
-                         0.4,
-                         'rgb(209,229,240)',
-                         0.6,
-                         'rgb(253,219,199)',
-                         0.8,
-                         'rgb(239,138,98)',
-                         1,
-                         'rgb(178,24,43)'
-                     ],
-                     // Adjust the heatmap radius by zoom level
-                     'heatmap-radius': [
-                         'interpolate',
-                         ['linear'],
-                         ['zoom'],
-                         0,
-                         2,
-                         9,
-                         20
-                     ],
-                     // Transition from heatmap to circle layer by zoom level
-                     'heatmap-opacity': [
-                         'interpolate',
-                         ['linear'],
-                         ['zoom'],
-                         7,
-                         1,
-                         9,
-                         0
-                     ]
-                 }
-             },
-             'waterway-label'
-         );
-         map.addLayer(
          {
-             'id': 'earthquakes-point',
-             'type': 'circle',
-             'source': 'earthquakes',
-             'minzoom': 7,
+             'id': 'Terrain Data',
+             'type': 'line',
+             'source': 'mapbox-terrain',
+             'maxzoom': 12,
+             'source-layer': 'contour',
+             'layout': {
+                 'line-join': 'round',
+                 'line-cap': 'round'
+             },
              'paint': {
-             // Size circle radius by earthquake magnitude and zoom level
-             'circle-radius': [
-                 'interpolate',
-                 ['linear'],
-                 ['zoom'],
-                 7,
-                 ['interpolate', ['linear'], ['get', 'mag'], 1, 1, 6, 4],
-                 16,
-                 ['interpolate', ['linear'], ['get', 'mag'], 1, 5, 6, 50]
-             ],
-             // Color circle by earthquake magnitude
+                 'line-color': '#ff69b4',
+                 'line-width': 1
+             }
+         });
+         map.addLayer({
+             id: 'clusters',
+             type: 'circle',
+             source: 'earthquakes',
+             filter: ['has', 'point_count'],
+             paint: {
+             // Use step expressions (https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-step)
+             // with three steps to implement three types of circles:
+             //   * Blue, 20px circles when point count is less than 100
+             //   * Yellow, 30px circles when point count is between 100 and 750
+             //   * Pink, 40px circles when point count is greater than or equal to 750
              'circle-color': [
-                 'interpolate',
-                 ['linear'],
-                 ['get', 'mag'],
-                 1,
-                 'rgba(33,102,172,0)',
-                 2,
-                 'rgb(103,169,207)',
-                 3,
-                 'rgb(209,229,240)',
-                 4,
-                 'rgb(253,219,199)',
-                 5,
-                 'rgb(239,138,98)',
-                 6,
-                 'rgb(178,24,43)'
+                 'step',
+                 ['get', 'point_count'],
+                 '#51bbd6',
+                 100,
+                 '#f1f075',
+                 750,
+                 '#f28cb1'
              ],
-             'circle-stroke-color': 'white',
-             'circle-stroke-width': 1,
-             // Transition from heatmap to circle layer by zoom level
-             'circle-opacity': [
-                 'interpolate',
-                 ['linear'],
-                 ['zoom'],
-                 7,
-                 0,
-                 8,
-                 1
+             'circle-radius': [
+             'step',
+             ['get', 'point_count'],
+             20,
+             100,
+             30,
+             750,
+             40
              ]
              }
-         },
-         'waterway-label'
-         );
+         });
+
+         map.addLayer({
+             id: 'cluster-count',
+             type: 'symbol',
+             source: 'earthquakes',
+             filter: ['has', 'point_count'],
+             layout: {
+                 'text-field': '{point_count_abbreviated}',
+                 'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                 'text-size': 12
+             }
+         });
+
+         map.addLayer({
+             id: 'unclustered-point',
+             type: 'circle',
+             source: 'earthquakes',
+             filter: ['!', ['has', 'point_count']],
+             paint: {
+                 'circle-color': '#11b4da',
+                 'circle-radius': 4,
+                 'circle-stroke-width': 1,
+                 'circle-stroke-color': '#fff'
+             }
+         });
      });
-    </script>
+
+     // enumerate ids of the layers
+     var toggleableLayerIds = ['Terrain Data', 'Urban Areas'];
+
+     // set up the corresponding toggle button for each layer
+     for (var i = 0; i < toggleableLayerIds.length; i++) {
+         var id = toggleableLayerIds[i];
+
+         var link = document.createElement('a');
+         link.href = '#';
+         link.className = 'active';
+         link.textContent = id;
+
+         link.onclick = function (e) {
+             var clickedLayer = this.textContent;
+             e.preventDefault();
+             e.stopPropagation();
+
+             var visibility = map.getLayoutProperty(clickedLayer, 'visibility');
+
+             // toggle layer visibility by changing the layout object's visibility property
+             if (visibility === 'visible') {
+                 map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+                 this.className = '';
+             } else {
+                 this.className = 'active';
+                 map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+             }
+         };
+
+         var layers = document.getElementById('menu');
+         layers.appendChild(link);
+     }
+     var earthquakeIds = ['unclustered-point','cluster-count','clusters'];
+
+     var link = document.createElement('a');
+     link.href = '#';
+     link.className = 'active';
+     link.textContent = "Earthquake Data";
+     link.onclick = function (e) {
+         for(var index in earthquakeIds) {
+             var clickedLayer = earthquakeIds[index];
+             e.preventDefault();
+             e.stopPropagation();
+
+             var visibility = map.getLayoutProperty(clickedLayer, 'visibility');
+
+             if (visibility === 'visible') {
+                 map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+                 this.className = '';
+             } else {
+                 this.className = 'active';
+                 map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+             }
+         }
+     };
+     var layers = document.getElementById('menu');
+     layers.appendChild(link);
+     </script>
 </body>
 </html>
